@@ -1,0 +1,173 @@
+import { Offcanvas, OffcanvasHeader, OffcanvasBody, Label, Input, Form, Button, Row, Col } from "reactstrap"
+import { useLocation, useHistory } from "react-router-dom"
+import { useFormik } from "formik"
+import qs from 'qs'
+import PropTypes from "prop-types"
+import ReactSelect from "react-select"
+import { useEffect, Fragment } from "react"
+import { useDispatch, useSelector } from "react-redux"
+import { getAprovalTypes, getRegionsList, getSubRegionsList, getAplicantAllList } from "../../../redux/reducers/monitoring"
+import Flatpickr from 'react-flatpickr'
+
+const Filter = ({ open, handleModal }) => {
+    const location = useLocation()
+    const history = useHistory()
+    const dispatch = useDispatch()
+    const store = useSelector(state => state.monitor)
+
+    const defaultValue = qs.parse(location.search, { ignoreQueryPrefix: true })
+
+    useEffect(() => {
+        if (defaultValue.region_id) {
+            dispatch(getRegionsList())
+            dispatch(getAprovalTypes())
+            dispatch(getSubRegionsList({ region_id: defaultValue.region_id }))
+        } else {
+            dispatch(getRegionsList())
+            dispatch(getAprovalTypes())
+        }
+    }, [])
+
+    const formik = useFormik({
+        initialValues: {
+            ariza_id: defaultValue.ariza_id || '',
+            checking_type: defaultValue.checking_type || '',
+            sub_region: defaultValue.sub_region || '',
+            needs_checking: defaultValue.needsCheck || '',
+            name: defaultValue.name || '',
+            tin: defaultValue.tin || '',
+            start_to_end_date: defaultValue.start_to_end_date || ''
+        },
+        onSubmit: values => {
+            const query = qs.parse(location.search, { ignoreQueryPrefix: true })
+            console.log(values)
+            console.log(query)
+            dispatch(getAplicantAllList(values))
+            // history.push({
+            //     pathname: location.pathname,
+            //     search: qs.stringify({
+            //         ...query,
+            //         id: values?.id || undefined,
+            //         region_id: values?.region_id || undefined,
+            //         sub_region: values?.sub_region || undefined
+            //     })
+            // })
+            // handleModal()
+        }
+    })
+    const handleReset = () => {
+        history.push(`${location.pathname}`)
+        dispatch(getAplicantAllList())
+        formik.resetForm()
+        handleModal()
+    }
+
+    return (
+        <Offcanvas
+            direction='end'
+            isOpen={open}
+            toggle={handleModal}
+        >
+            <OffcanvasHeader toggle={handleModal}>Ma'lumotlarni filter qilish</OffcanvasHeader>
+            <OffcanvasBody>
+                <Form onSubmit={formik.handleSubmit}>
+                    <Row sm={1}>
+                        <Col className="mb-1">
+                            <Label className='form-label' for='ariza_id'>
+                                ID
+                            </Label>
+                            <Input
+                                id='ariza_id'
+                                name="ariza_id"
+                                placeholder="ID"
+                                onChange={formik.handleChange}
+                                value={formik.values.id}
+                            />
+                        </Col>
+                        <Col className="mb-1">
+                            <Label className='form-label' for='region_id'>
+                                Viloyat
+                            </Label>
+                            <ReactSelect
+                                isSearchable
+                                id='region_id'
+                                name="region_id"
+                                placeholder="Barchasi..."
+                                options={store?.region}
+                                getOptionLabel={option => option.name_uz}
+                                getOptionValue={option => option.id}
+                                onChange={(val) => {
+                                    formik.setFieldValue("region_id", val.id)
+                                    dispatch(getSubRegionsList({ region_id: val.id }))
+                                }}
+                                value={store?.region?.find(val => val.id === formik.values.region_id)}
+                            />
+                        </Col>
+                        <Col className="mb-1">
+                            <Label className='form-label' for='sub_region'>
+                                Tuman
+                            </Label>
+                            <ReactSelect
+                                isSearchable
+                                id='sub_region'
+                                isDisabled={store?.subregion?.length === 0}
+                                options={store?.subregion}
+                                name="sub_region"
+                                placeholder="Barchasi..."
+                                getOptionLabel={option => option.name_uz}
+                                getOptionValue={option => option.id}
+                                onChange={(val) => {
+                                    formik.setFieldValue("sub_region", val.id)
+                                }}
+                                value={store?.subregion?.find(val => val.id === formik.values.sub_region)}
+                            />
+                        </Col>
+                        <Col className="mb-1">
+                            <Label className='form-label' for='sub_region'>
+                                Korxona nomi
+                            </Label>
+                            <Input
+                                id="name_company"
+                                placeholder="Korxona nomi"
+                                name="name"
+                                onChange={(val) => {
+                                    formik.setFieldValue("name", val.target.value)
+                                }}
+                            />
+                        </Col>
+                        <Col className="mb-1">
+                            <Label className='form-label' for='checking_type'>
+                                Tekshiruv natijasi
+                            </Label>
+                            <ReactSelect
+                                id="checking_type"
+                                isSearchable
+                                name="checking_type"
+                                placeholder='Tekshiruv natijasi'
+                                options={store?.aproval}
+                                getOptionLabel={option => option.name}
+                                getOptionValue={option => option.id}
+                                onChange={(val) => {
+                                    formik.setFieldValue("checking_type", val.name)
+
+                                }}
+                                value={store?.aproval?.find(val => val.name === formik.values.checking_type)}
+                            />
+                        </Col>
+                    </Row>
+                    <div className="d-flex align-items-center justify-content-center gap-2 mt-2">
+                        <Button type="reset" block outline color="primary" onClick={handleReset}>Tozalash</Button>
+                        <Button type="submit" block color="success">Qidirish</Button>
+                    </div>
+                </Form>
+            </OffcanvasBody>
+        </Offcanvas>
+    )
+}
+
+export default Filter
+
+Filter.propTypes = {
+    open: PropTypes.bool.isRequired,
+    handleModal: PropTypes.func.isRequired
+}
